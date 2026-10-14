@@ -1,0 +1,57 @@
+name: map-data-sync
+
+# Callback entry point for real snapshot updates in genshin-map-data:
+# its update workflow sends repository_dispatch(map-data-updated);
+# this workflow bumps the submodule pointer, commits/pushes, then deploys
+# (a GITHUB_TOKEN push does not re-trigger on:push, so deploy is reused
+# via workflow_call).
+# Versions verified 2026-10: checkout@v7
+# Prerequisites (same as deploy.yml): .gitmodules on GitHub; SUBMODULE_PAT
+# while the data repo is private
+
+on:
+  repository_dispatch:
+    types: [map-data-updated]
+
+# deploy (workflow_call) needs pages/id-token; a called workflow cannot
+# exceed what the caller grants
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  bump-submodule:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.bump.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.SUBMODULE_PAT || github.token }}
+
+      - name: Bump data submodule pointer
+        run: |
+          git submodule update --init --remote public/map-data
+
+      - name: Commit pointer bump
+        id: bump
+        run: |
+          git config user.name "map-data-sync-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add public/map-data
+          if git diff --cached --quiet; then
+            echo "pointer unchanged"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "chore(map-data): bump data snapshot to $(git -C public/map-data log -1 --format=%h)"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: bump-submodule
+    if: needs.bump-submodule.outputs.changed == 'true'
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

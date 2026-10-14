@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          # SUBMODULE_PAT (contents:read on the data repo) is required while it
+          # is private; falls back to GITHUB_TOKEN, which suffices once public
+          token: ${{ secrets.SUBMODULE_PAT || github.token }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run test
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          # SUBMODULE_PAT (contents:read on the data repo) is required while it
+          # is private; falls back to GITHUB_TOKEN, which suffices once public
+          token: ${{ secrets.SUBMODULE_PAT || github.token }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run e2e

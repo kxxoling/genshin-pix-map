@@ -1,0 +1,15 @@
+#!/bin/sh
+# E2E runs only when the outgoing commits touch src/, so doc-only or
+# workflow-only pushes skip the (comparatively slow) browser suite.
+# -e aborts on failure; -x echoes steps.
+set -e
+
+RANGE='@{push}..HEAD'
+if ! git rev-parse --verify -q "$RANGE" >/dev/null 2>&1; then
+  RANGE='origin/main..HEAD'
+fi
+if git diff --name-only "$RANGE" 2>/dev/null | grep -q '^src/'; then
+  bun run e2e
+else
+  echo "no src/ changes in outgoing commits, skipping e2e"
+fi

@@ -1,0 +1,68 @@
+name: deploy-pages
+
+# Builds and deploys to GitHub Pages in a single job on every push to main.
+# Versions verified 2026-10: checkout@v7 / setup-bun@v2 / configure-pages@v6 /
+# upload-pages-artifact@v5 / deploy-pages@v5
+#
+# One-time prerequisites:
+# - Settings -> Pages -> Source = "GitHub Actions"
+# - Private repos get no free Pages: it works once the repo is public (the
+#   build can still be verified manually from the Actions tab meanwhile)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+  # Reused by map-data-sync (a GITHUB_TOKEN push does not re-trigger on:push)
+  workflow_call: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; superseded runs are cancelled
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with data submodule)
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          # SUBMODULE_PAT (contents:read on the data repo) is required while it
+          # is private; falls back to GITHUB_TOKEN, which suffices once public
+          token: ${{ secrets.SUBMODULE_PAT || github.token }}
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Quality gate (lint + typecheck + unit tests)
+        run: |
+          bun run lint
+          bun run typecheck
+          bun run test
+
+      - name: Build
+        run: bun run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -1,0 +1,15 @@
+#!/bin/sh
+# -e: abort on the first failing command; -x: echo each step (no silent failures)
+set -e
+
+# lint-staged touches only staged files and skips itself when nothing
+# matches, so it stays cheap for every commit
+bunx lint-staged
+
+# Full typecheck + unit tests only when this commit actually touches src/
+if git diff --cached --name-only | grep -q '^src/'; then
+  bun run typecheck
+  bun run test
+else
+  echo "no src/ changes staged, skipping typecheck + tests"
+fi
