@@ -1,13 +1,13 @@
 import { useMapUiStore } from '@/state/map-store'
 
-// Debug HUD (top-right): zoom / backend / tile & marker counts / frame time
+// Debug HUD (bottom-right): zoom / backend / tile & marker counts / frame time
 export function MapHud() {
   const stats = useMapUiStore((s) => s.stats)
   const selectedMarkerId = useMapUiStore((s) => s.selectedMarkerId)
 
   if (!stats) return null
   return (
-    <div className="pointer-events-none absolute top-3 right-3 space-y-0.5 rounded-md bg-black/50 px-3 py-2 text-right font-mono text-xs leading-relaxed text-neutral-100 backdrop-blur-sm">
+    <div className="pointer-events-none absolute bottom-3 right-3 space-y-0.5 rounded-md bg-black/50 px-3 py-2 text-right font-mono text-xs leading-relaxed text-neutral-100 backdrop-blur-sm">
       <div>
         zoom {stats.zoom.toFixed(2)} · {stats.renderer}
       </div>
